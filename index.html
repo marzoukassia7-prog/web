@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrthoView — DICOM Viewer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--c:#f5f0e8;--iv:#ede7d9;--sd:#d9cfbd;--tp:#b8a99a;--um:#8c7b6e;--esp:#4a3b32;--ch:#2e2520;--ww:#faf8f4;--gd:#c8a96e;--gl:#e2c98a;--rs:#a05c3a;--sg:#7a8c6e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Jost',sans-serif;font-weight:300;background:var(--c);color:var(--esp);min-height:100vh;overflow-x:hidden}
+#splash{position:fixed;inset:0;z-index:999;background:var(--ch);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s,transform .8s}
+#splash.out{opacity:0;pointer-events:none;transform:translateY(-20px)}
+.sbg{position:absolute;inset:0;overflow:hidden}
+.sbg svg{width:100%;height:100%;opacity:.06}
+.sc{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:20px}
+.sx{width:50px;height:50px;position:relative;margin-bottom:24px}
+.sx::before,.sx::after{content:'';position:absolute;background:var(--gd);border-radius:2px}
+.sx::before{width:5px;height:50px;left:50%;transform:translateX(-50%)}
+.sx::after{width:50px;height:5px;top:50%;transform:translateY(-50%)}
+.st{font-family:'Cormorant Garamond',serif;font-size:clamp(3rem,9vw,6rem);font-weight:300;color:#faf8f4;letter-spacing:.08em;line-height:1}
+.ss{font-size:.7rem;letter-spacing:.5em;text-transform:uppercase;color:var(--gd);margin-top:8px;font-weight:200}
+.sdiv{width:100px;height:1px;background:linear-gradient(90deg,transparent,var(--gd),transparent);margin:28px 0}
+.sby{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.15rem;color:var(--sd)}
+.sn{font-family:'Cormorant Garamond',serif;font-size:1.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gl);font-weight:600}
+.sbtn{margin-top:46px;padding:13px 46px;background:transparent;border:1px solid var(--gd);color:var(--gl);font-weight:300;font-size:.74rem;letter-spacing:.38em;text-transform:uppercase;cursor:pointer;transition:background .3s,color .3s,transform .2s;border-radius:3px}
+.sbtn:hover{background:var(--gd);color:var(--ch);transform:translateY(-2px)}
+#app{display:none;min-height:100vh;flex-direction:column}
+#app.on{display:flex}
+header{background:var(--ch);padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 3px 20px rgba(0,0,0,.25)}
+.hl{display:flex;align-items:center;gap:13px}
+.hx{width:19px;height:19px;position:relative}
+.hx::before,.hx::after{content:'';position:absolute;background:var(--gd);border-radius:1px}
+.hx::before{width:3px;height:19px;left:50%;transform:translateX(-50%)}
+.hx::after{width:19px;height:3px;top:50%;transform:translateY(-50%)}
+.hn{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:#faf8f4;letter-spacing:.1em}
+.ht{font-size:.6rem;letter-spacing:.4em;text-transform:uppercase;color:var(--gd);font-weight:200}
+.hr{display:flex;align-items:center;gap:16px}
+.hp{font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--tp);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hnb{padding:6px 20px;background:transparent;border:1px solid rgba(200,169,110,.4);color:var(--gd);border-radius:3px;font-size:.64rem;font-weight:300;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;transition:background .25s}
+.hnb:hover{background:rgba(200,169,110,.12)}
+#up{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;flex-direction:column;gap:32px}
+.ui{text-align:center;max-width:520px}
+.ui h2{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:2.2rem;color:var(--esp);margin-bottom:10px}
+.ui p{color:var(--um);font-size:.86rem;line-height:1.65}
+.uz{width:100%;max-width:540px;border:1.5px dashed var(--tp);border-radius:16px;padding:50px 36px;text-align:center;cursor:pointer;transition:border-color .3s,background .3s,transform .2s;background:var(--ww)}
+.uz:hover,.uz.dov{border-color:var(--gd);background:var(--iv);transform:translateY(-2px);box-shadow:0 8px 40px rgba(74,59,50,.12)}
+.uz h3{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:1.4rem;color:var(--esp);margin-bottom:8px}
+.uz p{font-size:.78rem;color:var(--um)}
+#fi{display:none}
+.ub{margin-top:24px;display:inline-block;padding:11px 34px;background:var(--esp);color:var(--c);border:none;border-radius:3px;font-size:.72rem;font-weight:300;letter-spacing:.28em;text-transform:uppercase;cursor:pointer;transition:background .3s}
+.ub:hover{background:var(--ch)}
+#vs{display:none;flex:1;padding:20px 22px;gap:20px}
+#vs.on{display:grid;grid-template-columns:1fr 440px;align-items:start}
+.cp{background:var(--ch);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,.25)}
+.ct{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(46,37,32,.97);border-bottom:1px solid rgba(255,255,255,.06)}
+.ti{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:var(--tp)}
+.tb2{display:flex;gap:6px}
+.bm{padding:3px 9px;border-radius:20px;font-size:.6rem;font-weight:400;letter-spacing:.12em;text-transform:uppercase}
+.bmod{background:rgba(200,169,110,.15);color:var(--gd);border:1px solid rgba(200,169,110,.3)}
+.bwl{background:rgba(122,140,110,.15);color:var(--sg);border:1px solid rgba(122,140,110,.3)}
+.cw{display:flex;align-items:center;justify-content:center;padding:14px;background:#181310;min-height:400px;position:relative}
+#dc{max-width:100%;max-height:440px;cursor:crosshair;border-radius:2px;display:block}
+.cov{position:absolute;font-size:.6rem;font-family:monospace;color:rgba(200,169,110,.55);letter-spacing:.06em;padding:5px;line-height:1.6}
+.tl{top:16px;left:18px}.tr{top:16px;right:18px;text-align:right}
+.bl{bottom:16px;left:18px}.br{bottom:16px;right:18px;text-align:right}
+.sp{padding:13px 14px;background:rgba(46,37,32,.97);border-top:1px solid rgba(255,255,255,.06);display:flex;gap:18px}
+.sg2{flex:1}
+.sl2{display:flex;justify-content:space-between;margin-bottom:7px}
+.sl2 span:first-child{font-size:.63rem;letter-spacing:.18em;text-transform:uppercase;color:var(--tp)}
+.sv{font-size:.73rem;color:var(--gl);min-width:46px;text-align:right;font-family:monospace}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:rgba(255,255,255,.12);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--gd);cursor:pointer;box-shadow:0 0 6px rgba(200,169,110,.4)}
+
+/* RIGHT PANEL */
+.rp{display:flex;flex-direction:column;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(74,59,50,.12);max-height:calc(100vh - 96px)}
+.filter-bar{background:var(--esp);padding:11px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.filter-bar input{flex:1;padding:7px 11px;border:1px solid rgba(200,169,110,.3);border-radius:4px;background:rgba(255,255,255,.08);font-family:'Jost',sans-serif;font-size:.76rem;font-weight:300;color:#faf8f4;outline:none;transition:border-color .2s}
+.filter-bar input:focus{border-color:var(--gd)}
+.filter-bar input::placeholder{color:rgba(184,169,154,.6)}
+.filter-clear{padding:5px 11px;background:transparent;border:1px solid rgba(200,169,110,.3);color:var(--gd);border-radius:3px;font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .2s;flex-shrink:0}
+.filter-clear:hover{background:rgba(200,169,110,.15)}
+.tags-scroll{flex:1;overflow-y:auto;background:var(--ww)}
+.tags-scroll::-webkit-scrollbar{width:4px}
+.tags-scroll::-webkit-scrollbar-thumb{background:var(--sd);border-radius:3px}
+
+/* TAG TABLE */
+table.tg{width:100%;border-collapse:collapse}
+table.tg thead th{padding:8px 12px;text-align:left;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--tp);font-weight:400;position:sticky;top:0;background:var(--iv);border-bottom:1px solid var(--sd);z-index:1}
+table.tg tbody tr{border-bottom:1px solid var(--iv);transition:background .15s;cursor:default}
+table.tg tbody tr:hover{background:#f0ebe0}
+/* TAG column */
+.tc-tag{width:22%;padding:8px 10px 8px 12px;vertical-align:top}
+.tag-hex{font-family:monospace;font-size:.62rem;color:var(--gd);display:block}
+.tag-vr{font-size:.54rem;color:var(--tp);background:rgba(200,169,110,.12);border:1px solid rgba(200,169,110,.2);border-radius:3px;padding:1px 4px;display:inline-block;margin-top:3px;letter-spacing:.05em}
+/* NOM + INDICATION column */
+.tc-name{width:32%;padding:8px 8px;vertical-align:top}
+.tag-name{font-size:.7rem;color:var(--esp);font-weight:400;display:block;line-height:1.3}
+.tag-desc{font-size:.62rem;color:var(--um);display:block;margin-top:3px;line-height:1.35;font-style:italic}
+/* VALEUR column */
+.tc-val{width:46%;padding:8px 12px 8px 8px;vertical-align:top;font-size:.72rem;color:var(--esp);word-break:break-all;line-height:1.4}
+.val-empty{color:var(--tp);font-style:italic;font-size:.66rem}
+
+.tag-count{font-size:.62rem;color:var(--tp);padding:7px 14px;background:var(--iv);border-top:1px solid var(--sd);text-align:right;flex-shrink:0}
+
+#lod{display:none;position:fixed;inset:0;background:rgba(46,37,32,.75);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+#lod.on{display:flex}
+.lr{width:48px;height:48px;border:2px solid rgba(200,169,110,.2);border-top-color:var(--gd);border-radius:50%;animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.lt{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gl)}
+#tst{display:none;position:fixed;bottom:24px;right:24px;background:var(--esp);color:var(--c);padding:12px 18px;border-radius:8px;font-size:.78rem;border-left:3px solid var(--rs);box-shadow:0 8px 30px rgba(0,0,0,.3);z-index:600;max-width:320px}
+#tst.on{display:block}
+@media(max-width:960px){#vs.on{grid-template-columns:1fr}.rp{max-height:600px}}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="sbg">
+    <svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="450" cy="300" r="270" stroke="#c8a96e" stroke-width="1" fill="none"/>
+      <circle cx="450" cy="300" r="210" stroke="#c8a96e" stroke-width=".6" fill="none"/>
+      <circle cx="450" cy="300" r="140" stroke="#c8a96e" stroke-width=".4" fill="none"/>
+      <line x1="180" y1="300" x2="720" y2="300" stroke="#c8a96e" stroke-width=".5"/>
+      <line x1="450" y1="30" x2="450" y2="570" stroke="#c8a96e" stroke-width=".5"/>
+      <line x1="200" y1="60" x2="700" y2="540" stroke="#c8a96e" stroke-width=".3"/>
+      <line x1="700" y1="60" x2="200" y2="540" stroke="#c8a96e" stroke-width=".3"/>
+    </svg>
+  </div>
+  <div class="sc">
+    <div class="sx"></div>
+    <div class="st">OrthoView</div>
+    <div class="ss">Diagnostic Imaging Platform</div>
+    <div class="sdiv"></div>
+    <div class="sby">by</div>
+    <div class="sn">Marzouk Assia</div>
+    <button class="sbtn" onclick="enterApp()">Accéder &nbsp;→</button>
+  </div>
+</div>
+
+<div id="lod"><div class="lr"></div><div class="lt">Lecture DICOM…</div></div>
+<div id="tst"></div>
+
+<div id="app">
+  <header>
+    <div class="hl">
+      <div class="hx"></div>
+      <div><div class="hn">OrthoView</div><div class="ht">DICOM Viewer</div></div>
+    </div>
+    <div class="hr">
+      <span class="hp" id="fs">Aucun fichier</span>
+      <button class="hnb" onclick="resetV()">Nouveau fichier</button>
+    </div>
+  </header>
+
+  <section id="up">
+    <div class="ui">
+      <h2>Visualisation DICOM</h2>
+      <p>Chargez votre fichier .dcm pour visualiser l'image, ajuster le fenêtrage WC/WW et consulter toutes les métadonnées avec leurs descriptions.</p>
+    </div>
+    <div class="uz" id="dz" onclick="document.getElementById('fi').click()" ondragover="dov(event)" ondragleave="dol()" ondrop="ddr(event)">
+      <svg width="54" height="54" viewBox="0 0 64 64" fill="none" style="margin:0 auto 16px;display:block;opacity:.5">
+        <rect x="8" y="4" width="36" height="48" rx="4" stroke="#8c7b6e" stroke-width="2"/>
+        <path d="M32 4v14h14" stroke="#8c7b6e" stroke-width="2"/>
+        <circle cx="48" cy="46" r="12" fill="#f5f0e8" stroke="#c8a96e" stroke-width="2"/>
+        <path d="M48 40v12M42 46h12" stroke="#c8a96e" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h3>Déposer un fichier DICOM</h3>
+      <p>Glissez-déposez votre .dcm ici ou cliquez pour parcourir</p>
+      <input type="file" id="fi" accept=".dcm,.dicom,*" onchange="loadF(this.files[0])">
+      <button class="ub" onclick="event.stopPropagation();document.getElementById('fi').click()">Parcourir</button>
+    </div>
+  </section>
+
+  <section id="vs">
+    <div class="cp">
+      <div class="ct">
+        <span class="ti" id="tdim">—</span>
+        <div class="tb2">
+          <span class="bm bmod" id="bmod">—</span>
+          <span class="bm bwl" id="bwl">WC — | WW —</span>
+        </div>
+      </div>
+      <div class="cw">
+        <canvas id="dc"></canvas>
+        <div class="cov tl" id="ovp"></div>
+        <div class="cov tr" id="ovs"></div>
+        <div class="cov bl" id="ovx"></div>
+        <div class="cov br" id="ovd"></div>
+      </div>
+      <div class="sp">
+        <div class="sg2">
+          <div class="sl2"><span>Centre (WC)</span><span class="sv" id="wcv">—</span></div>
+          <input type="range" id="swc" min="-2000" max="3000" step="1" oninput="upd()">
+        </div>
+        <div class="sg2">
+          <div class="sl2"><span>Largeur (WW)</span><span class="sv" id="wwv">—</span></div>
+          <input type="range" id="sww" min="1" max="4000" step="1" oninput="upd()">
+        </div>
+      </div>
+    </div>
+
+    <div class="rp">
+      <div class="filter-bar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c8a96e" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="tsq" placeholder="Rechercher tag, nom, description ou valeur…" oninput="ftags()">
+        <button class="filter-clear" onclick="document.getElementById('tsq').value='';ftags()">Reset</button>
+      </div>
+      <div class="tags-scroll">
+        <table class="tg">
+          <thead>
+            <tr>
+              <th>Tag / VR</th>
+              <th>Nom &amp; Description</th>
+              <th>Valeur</th>
+            </tr>
+          </thead>
+          <tbody id="tgb"></tbody>
+        </table>
+      </div>
+      <div class="tag-count" id="tag-count">—</div>
+    </div>
+  </section>
+</div>
+
+<script>
+// ── DESCRIPTIONS DES TAGS ─────────────────────────────────
+const TAG_INFO = {
+  '00080008': {n:'Image Type',          d:'Type et caractéristiques de l\'image (original, dérivé...)'},
+  '00080016': {n:'SOP Class UID',        d:'Identifiant de la classe de service DICOM'},
+  '00080018': {n:'SOP Instance UID',     d:'Identifiant unique de cette image DICOM'},
+  '00080020': {n:'Date de l\'étude',     d:'Date à laquelle l\'étude a été réalisée'},
+  '00080021': {n:'Date de la série',     d:'Date d\'acquisition de la série d\'images'},
+  '00080022': {n:'Date d\'acquisition',  d:'Date précise d\'acquisition de l\'image'},
+  '00080023': {n:'Date du contenu',      d:'Date de création du contenu de l\'image'},
+  '00080030': {n:'Heure de l\'étude',    d:'Heure de début de l\'étude'},
+  '00080031': {n:'Heure de la série',    d:'Heure d\'acquisition de la série'},
+  '00080032': {n:'Heure d\'acquisition', d:'Heure précise d\'acquisition de l\'image'},
+  '00080050': {n:'Numéro d\'accession',  d:'Identifiant de la demande d\'examen dans le RIS'},
+  '00080060': {n:'Modalité',             d:'Type d\'équipement utilisé (CT, MR, CR, DR, US...)'},
+  '00080070': {n:'Fabricant',            d:'Nom du fabricant de l\'équipement d\'acquisition'},
+  '00080080': {n:'Institution',          d:'Nom de l\'établissement de santé'},
+  '00080081': {n:'Adresse institution',  d:'Adresse de l\'établissement de santé'},
+  '00080090': {n:'Médecin référent',     d:'Nom du médecin prescripteur de l\'examen'},
+  '00081010': {n:'Nom de la station',    d:'Nom de la station d\'acquisition'},
+  '00081030': {n:'Description étude',    d:'Description clinique de l\'examen'},
+  '0008103E': {n:'Description série',    d:'Description de la série d\'images'},
+  '00081050': {n:'Médecin réalisant',    d:'Nom du médecin ayant réalisé l\'examen'},
+  '00081070': {n:'Opérateur',            d:'Nom du technicien ou manipulateur'},
+  '00081090': {n:'Modèle équipement',    d:'Modèle de l\'équipement d\'acquisition'},
+  '00100010': {n:'Nom du patient',       d:'Nom et prénom du patient'},
+  '00100020': {n:'ID patient',           d:'Identifiant unique du patient dans le système'},
+  '00100021': {n:'Émetteur ID patient',  d:'Autorité émettrice de l\'identifiant patient'},
+  '00100030': {n:'Date de naissance',    d:'Date de naissance du patient (AAAAMMJJ)'},
+  '00100040': {n:'Sexe du patient',      d:'Sexe du patient : M (masculin), F (féminin), O (autre)'},
+  '00101000': {n:'Autres ID patient',    d:'Identifiants alternatifs du patient'},
+  '00101010': {n:'Âge du patient',       d:'Âge du patient au moment de l\'examen (ex: 045Y)'},
+  '00101020': {n:'Taille du patient',    d:'Taille du patient en mètres'},
+  '00101030': {n:'Poids du patient',     d:'Poids du patient en kilogrammes'},
+  '00102000': {n:'Alertes médicales',    d:'Informations médicales importantes sur le patient'},
+  '00102110': {n:'Allergies',            d:'Liste des allergies connues du patient'},
+  '00104000': {n:'Commentaires patient', d:'Commentaires libres concernant le patient'},
+  '00180010': {n:'Agent de contraste',   d:'Produit de contraste utilisé lors de l\'examen'},
+  '00180015': {n:'Partie du corps',      d:'Région anatomique examinée (CHEST, HEAD, ABDOMEN...)'},
+  '00180050': {n:'Épaisseur de coupe',   d:'Épaisseur nominale de la coupe en millimètres'},
+  '00180060': {n:'KVP',                  d:'Tension du tube radiogène en kilovolts'},
+  '00180080': {n:'Temps de répétition',  d:'TR : temps entre deux impulsions RF en IRM (ms)'},
+  '00180081': {n:'Temps d\'écho',        d:'TE : temps entre impulsion RF et lecture signal IRM (ms)'},
+  '00180082': {n:'Temps d\'inversion',   d:'TI : temps d\'inversion en séquence IRM (ms)'},
+  '00180083': {n:'Nb de moyennages',     d:'Nombre de moyennages du signal pour réduire le bruit'},
+  '00180084': {n:'Fréquence d\'imagerie',d:'Fréquence de précession de Larmor en IRM (MHz)'},
+  '00180085': {n:'Noyau imagé',          d:'Noyau atomique résonant utilisé en IRM (ex: 1H)'},
+  '00180087': {n:'Champ magnétique',     d:'Intensité du champ magnétique en Tesla (IRM)'},
+  '00180088': {n:'Espacement coupes',    d:'Distance entre le centre de coupes consécutives (mm)'},
+  '00180090': {n:'Diamètre collecte',    d:'Diamètre du champ de collecte des données (mm)'},
+  '00181030': {n:'Protocole',            d:'Nom du protocole d\'acquisition utilisé'},
+  '00181100': {n:'Diamètre reconstruction', d:'Diamètre du champ de reconstruction de l\'image (mm)'},
+  '00181151': {n:'Intensité tube',       d:'Courant du tube radiogène en milliampères (mA)'},
+  '00181152': {n:'Exposition',           d:'Charge électrique du tube en milliampères-secondes (mAs)'},
+  '00181160': {n:'Type de filtre',       d:'Type de filtration utilisée lors de l\'acquisition'},
+  '00185100': {n:'Position patient',     d:'Position du patient (HFS, HFP, FFS, FFP...)'},
+  '00200010': {n:'ID de l\'étude',       d:'Identifiant de l\'étude dans le système d\'information'},
+  '00200011': {n:'Numéro de série',      d:'Numéro identifiant la série au sein de l\'étude'},
+  '00200013': {n:'Numéro d\'instance',   d:'Numéro identifiant cette image au sein de la série'},
+  '00200020': {n:'Orientation patient',  d:'Orientation de l\'image par rapport au patient'},
+  '00200032': {n:'Position image',       d:'Coordonnées 3D du coin supérieur gauche de l\'image (mm)'},
+  '00200037': {n:'Orientation image',    d:'Cosinus directeurs des lignes et colonnes de l\'image'},
+  '00200052': {n:'UID référentiel',      d:'Identifiant du système de coordonnées de référence'},
+  '00200060': {n:'Latéralité',           d:'Côté du corps examiné : R (droite), L (gauche)'},
+  '00280002': {n:'Échantillons par pixel',d:'Nombre de composantes par pixel (1=niveaux de gris, 3=couleur)'},
+  '00280004': {n:'Interp. photométrique',d:'Interprétation des valeurs pixel (MONOCHROME2, RGB...)'},
+  '00280008': {n:'Nombre de trames',     d:'Nombre d\'images dans un objet DICOM multi-trames'},
+  '00280010': {n:'Nombre de lignes',     d:'Hauteur de l\'image en pixels (dimension verticale)'},
+  '00280011': {n:'Nombre de colonnes',   d:'Largeur de l\'image en pixels (dimension horizontale)'},
+  '00280030': {n:'Espacement pixel',     d:'Dimensions physiques d\'un pixel en mm (ligne × colonne)'},
+  '00280100': {n:'Bits alloués',         d:'Nombre de bits alloués pour stocker chaque pixel'},
+  '00280101': {n:'Bits stockés',         d:'Nombre de bits réellement utilisés pour chaque pixel'},
+  '00280102': {n:'Bit de poids fort',    d:'Position du bit le plus significatif dans la valeur pixel'},
+  '00280103': {n:'Représentation pixel', d:'Codage des pixels : 0=non signé, 1=signé (en complément à 2)'},
+  '00280106': {n:'Valeur pixel minimale',d:'Valeur numérique minimale présente dans l\'image'},
+  '00280107': {n:'Valeur pixel maximale',d:'Valeur numérique maximale présente dans l\'image'},
+  '00281050': {n:'Centre de fenêtre (WC)',d:'Valeur centrale de la fenêtre d\'affichage (niveau)'},
+  '00281051': {n:'Largeur de fenêtre (WW)',d:'Largeur de la fenêtre d\'affichage (contraste)'},
+  '00281052': {n:'Intercept de rescaling',d:'Valeur b dans la formule : HU = pixel × slope + intercept'},
+  '00281053': {n:'Pente de rescaling',   d:'Valeur m dans la formule : HU = pixel × slope + intercept'},
+  '00281054': {n:'Type de rescaling',    d:'Unité des valeurs après rescaling (ex: HU = Hounsfield)'},
+  '7FE00010': {n:'Données pixel',        d:'Données brutes de l\'image (non affichées ici)'},
+};
+
+function getTagInfo(g, e) {
+  const k = (g.toString(16).padStart(4,'0') + e.toString(16).padStart(4,'0')).toUpperCase();
+  return TAG_INFO[k] || TAG_INFO[k.toLowerCase()] || {
+    n: `Tag (${g.toString(16).padStart(4,'0')},${e.toString(16).padStart(4,'0')})`,
+    d: 'Tag DICOM privé ou non référencé'
+  };
+}
+
+// ── PARSER ────────────────────────────────────────────────
+const VL=new Set(['OB','OW','SQ','UC','UN','UR','UT','OD','OF','OL']);
+
+function parseDicom(buf){
+  const dv=new DataView(buf),u8=new Uint8Array(buf);
+  const tags=[];
+  const mg=String.fromCharCode(u8[128],u8[129],u8[130],u8[131]);
+  let o=mg==='DICM'?132:0;
+  while(o<buf.byteLength-8){
+    try{
+      const g=dv.getUint16(o,true),e=dv.getUint16(o+2,true);o+=4;
+      if(g===0xFFFE&&(e===0xE0DD||e===0xE00D)){o+=4;continue;}
+      if(g===0xFFFE&&e===0xE000){const il=dv.getUint32(o,true);o+=4;if(il!==0xFFFFFFFF)o+=il;continue;}
+      let vr='UN',len=0;
+      const c1=u8[o],c2=u8[o+1];
+      const cv=String.fromCharCode(c1,c2);
+      const ex=/^[A-Z]{2}$/.test(cv)&&c1>=65&&c1<=90&&c2>=65&&c2<=90;
+      if(ex){vr=cv;o+=2;if(VL.has(vr)){o+=2;len=dv.getUint32(o,true);o+=4;}else{len=dv.getUint16(o,true);o+=2;}}
+      else{vr='UN';len=dv.getUint32(o,true);o+=4;}
+      if(len===0xFFFFFFFF)len=0;
+      if(o+len>buf.byteLength)break;
+      const info=getTagInfo(g,e);
+      const tag=`(${g.toString(16).padStart(4,'0')},${e.toString(16).padStart(4,'0')})`;
+      if(g===0x7FE0&&e===0x0010){
+        tags.push({tag,g,e,vr,len,value:buf.slice(o,o+len),name:info.n,desc:info.d,isPx:true});
+        o+=len;continue;
+      }
+      let value=null;
+      if(len>0&&len<=131072){
+        switch(vr){
+          case'US':value=len>=2?dv.getUint16(o,true):0;break;
+          case'SS':value=len>=2?dv.getInt16(o,true):0;break;
+          case'UL':value=len>=4?dv.getUint32(o,true):0;break;
+          case'SL':value=len>=4?dv.getInt32(o,true):0;break;
+          case'FL':value=len>=4?dv.getFloat32(o,true):0;break;
+          case'FD':value=len>=8?dv.getFloat64(o,true):0;break;
+          case'AT':value=`(${dv.getUint16(o,true).toString(16).padStart(4,'0')},${dv.getUint16(o+2,true).toString(16).padStart(4,'0')})`;break;
+          default:try{value=new TextDecoder('latin1').decode(new Uint8Array(buf,o,len)).replace(/\0/g,'').trim();}catch{value='[binaire]';}
+        }
+      }
+      tags.push({tag,g,e,vr,len,value:value!==null?String(value):'',name:info.n,desc:info.d,isPx:false});
+      o+=len;
+    }catch{break;}
+  }
+  const ds={_tags:tags,_all:{}};
+  for(const t of tags){
+    const k=(t.g.toString(16).padStart(4,'0')+t.e.toString(16).padStart(4,'0')).toLowerCase();
+    ds._all[k]=t.value;
+    ds[t.name]=t.value;
+  }
+  return ds;
+}
+
+function exPx(ds,rows,cols,bits,signed,pd){
+  const px=new Float32Array(rows*cols);
+  let view;
+  try{if(bits===16)view=signed?new Int16Array(pd):new Uint16Array(pd);else view=new Uint8Array(pd);}
+  catch{view=new Uint8Array(pd);}
+  const s=parseFloat(ds._all['00281053']||1)||1;
+  const it=parseFloat(ds._all['00281052']||0)||0;
+  for(let i=0;i<rows*cols&&i<view.length;i++)px[i]=view[i]*s+it;
+  return px;
+}
+
+function rndr(cv,px,rows,cols,wc,ww){
+  cv.width=cols;cv.height=rows;
+  const ctx=cv.getContext('2d'),id=ctx.createImageData(cols,rows);
+  const mn=wc-ww/2,mx=wc+ww/2,rng=mx-mn;
+  for(let i=0;i<rows*cols;i++){
+    let v=rng>0?((px[i]-mn)/rng)*255:128;
+    v=v<0?0:v>255?255:v;
+    const b=i*4;id.data[b]=id.data[b+1]=id.data[b+2]=v;id.data[b+3]=255;
+  }
+  ctx.putImageData(id,0,0);
+}
+
+let gDS=null,gPX=null,gR=512,gC=512;
+
+function gv(ds,...ks){
+  for(const k of ks){
+    const v=ds._all[k.toLowerCase()]??ds[k];
+    if(v!==undefined&&v!==null&&String(v).trim()!=='')return String(v).trim();
+  }
+  return '—';
+}
+function fd(d){if(!d||d==='—')return'—';const s=String(d).replace(/\D/g,'');return s.length===8?`${s.slice(6,8)}/${s.slice(4,6)}/${s.slice(0,4)}`:d;}
+
+// ── FORMAT VALEUR ─────────────────────────────────────────
+function fmtVal(tag, vr, raw) {
+  if(!raw||raw==='')return'<span class="val-empty">—</span>';
+  const g = tag.replace(/[()]/g,'').split(',');
+  const k = (g[0]+g[1]).toUpperCase();
+  // Format dates
+  if(['00080020','00080021','00080022','00080023','00100030'].includes(k)){
+    const s=String(raw).replace(/\D/g,'');
+    if(s.length===8)return`${s.slice(6,8)}/${s.slice(4,6)}/${s.slice(0,4)}`;
+  }
+  // Format times
+  if(['00080030','00080031','00080032'].includes(k)){
+    const s=String(raw).replace(/\D/g,'');
+    if(s.length>=6)return`${s.slice(0,2)}:${s.slice(2,4)}:${s.slice(4,6)}`;
+  }
+  // Format sexe
+  if(k==='00100040'){const m={'M':'Masculin','F':'Féminin','O':'Autre'};return m[raw]||raw;}
+  // Format pixel representation
+  if(k==='00280103'){return raw==='0'?'0 — Non signé (unsigned)':'1 — Signé (signed)';}
+  // Format photometric
+  if(k==='00280004'){
+    const m={'MONOCHROME1':'MONOCHROME1 (blanc=0)','MONOCHROME2':'MONOCHROME2 (noir=0)','RGB':'RGB (couleur)','YBR_FULL':'YBR_FULL (couleur compressée)'};
+    return m[raw]||raw;
+  }
+  const s=String(raw).substring(0,250);
+  return s||'<span class="val-empty">—</span>';
+}
+
+let allT=[];
+function fillTags(ds){
+  allT=ds._tags.filter(t=>!t.isPx).map(t=>({
+    tag:t.tag, vr:t.vr, name:t.name, desc:t.desc,
+    value:t.value!==null&&t.value!==undefined?String(t.value):'',
+    display:fmtVal(t.tag,t.vr,t.value)
+  }));
+  rtags(allT);
+}
+
+function rtags(data){
+  const tb=document.getElementById('tgb');
+  tb.innerHTML='';
+  const frag=document.createDocumentFragment();
+  for(const r of data){
+    const tr=document.createElement('tr');
+    tr.innerHTML=
+      `<td class="tc-tag"><span class="tag-hex">${r.tag}</span><span class="tag-vr">${r.vr}</span></td>`+
+      `<td class="tc-name"><span class="tag-name">${r.name}</span><span class="tag-desc">${r.desc}</span></td>`+
+      `<td class="tc-val">${r.display}</td>`;
+    frag.appendChild(tr);
+  }
+  tb.appendChild(frag);
+  document.getElementById('tag-count').textContent=`${data.length} tag${data.length>1?'s':''} affichés sur ${allT.length}`;
+}
+
+function ftags(){
+  const q=document.getElementById('tsq').value.toLowerCase().trim();
+  if(!q){rtags(allT);return;}
+  rtags(allT.filter(r=>
+    r.name.toLowerCase().includes(q)||
+    r.desc.toLowerCase().includes(q)||
+    r.value.toLowerCase().includes(q)||
+    r.tag.toLowerCase().includes(q)||
+    r.vr.toLowerCase().includes(q)
+  ));
+}
+
+function upd(){
+  const wc=parseInt(document.getElementById('swc').value);
+  const ww=parseInt(document.getElementById('sww').value);
+  document.getElementById('wcv').textContent=wc;
+  document.getElementById('wwv').textContent=ww;
+  document.getElementById('bwl').textContent=`WC ${wc} | WW ${ww}`;
+  if(gPX)rndr(document.getElementById('dc'),gPX,gR,gC,wc,ww);
+}
+
+function loadF(file){
+  if(!file)return;
+  document.getElementById('lod').classList.add('on');
+  const fr=new FileReader();
+  fr.onload=function(e){
+    try{
+      const ds=parseDicom(e.target.result);gDS=ds;
+      const rows=parseInt(ds._all['00280010'])||512;
+      const cols=parseInt(ds._all['00280011'])||512;
+      const bits=parseInt(ds._all['00280100'])||16;
+      const prp=parseInt(ds._all['00280103'])||0;
+      const pd=ds._all['7fe00010']||ds['Données pixel'];
+      if(!pd)throw new Error('Aucune donnée pixel trouvée dans ce fichier DICOM.');
+      gR=rows;gC=cols;
+      gPX=exPx(ds,rows,cols,bits,prp===1,pd);
+      let wc=parseFloat(ds._all['00281050'])||40;
+      let ww=parseFloat(ds._all['00281051'])||400;
+      if(String(wc).includes('\\'))wc=parseFloat(String(wc).split('\\')[0]);
+      if(String(ww).includes('\\'))ww=parseFloat(String(ww).split('\\')[0]);
+      document.getElementById('swc').value=wc;
+      document.getElementById('sww').value=ww;
+      document.getElementById('wcv').textContent=Math.round(wc);
+      document.getElementById('wwv').textContent=Math.round(ww);
+      document.getElementById('bwl').textContent=`WC ${Math.round(wc)} | WW ${Math.round(ww)}`;
+      rndr(document.getElementById('dc'),gPX,rows,cols,wc,ww);
+      const mod=ds._all['00080060']||'—';
+      const pname=ds._all['00100010']||'—';
+      const pid=ds._all['00100020']||'—';
+      document.getElementById('ovp').innerHTML=pname+'<br>'+pid;
+      document.getElementById('ovs').innerHTML=mod+'<br>'+fd(ds._all['00080020']||'');
+      document.getElementById('ovx').textContent=`${cols}×${rows}`;
+      document.getElementById('ovd').textContent=fd(ds._all['00080023']||ds._all['00080020']||'');
+      document.getElementById('tdim').textContent=`${cols}×${rows} px — ${bits}bit`;
+      document.getElementById('bmod').textContent=mod||'DICOM';
+      document.getElementById('fs').textContent=file.name;
+      fillTags(ds);
+      document.getElementById('up').style.display='none';
+      document.getElementById('vs').classList.add('on');
+      document.getElementById('lod').classList.remove('on');
+    }catch(err){
+      document.getElementById('lod').classList.remove('on');
+      showT('Erreur : '+err.message);
+    }
+  };
+  fr.onerror=()=>{document.getElementById('lod').classList.remove('on');showT('Impossible de lire ce fichier.');};
+  fr.readAsArrayBuffer(file);
+}
+
+function resetV(){
+  gDS=null;gPX=null;
+  document.getElementById('vs').classList.remove('on');
+  document.getElementById('up').style.display='';
+  document.getElementById('fs').textContent='Aucun fichier';
+  document.getElementById('fi').value='';
+  document.getElementById('tsq').value='';
+}
+function dov(e){e.preventDefault();document.getElementById('dz').classList.add('dov');}
+function dol(){document.getElementById('dz').classList.remove('dov');}
+function ddr(e){e.preventDefault();dol();if(e.dataTransfer.files[0])loadF(e.dataTransfer.files[0]);}
+function showT(m){const t=document.getElementById('tst');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),6000);}
+function enterApp(){
+  document.getElementById('splash').classList.add('out');
+  setTimeout(()=>{document.getElementById('splash').style.display='none';document.getElementById('app').classList.add('on');},800);
+}
+</script>
+</body>
+</html>
