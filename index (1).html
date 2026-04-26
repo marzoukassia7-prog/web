@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrthoView — DICOM Viewer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--c:#f5f0e8;--iv:#ede7d9;--sd:#d9cfbd;--tp:#b8a99a;--um:#8c7b6e;--esp:#4a3b32;--ch:#2e2520;--ww:#faf8f4;--gd:#c8a96e;--gl:#e2c98a;--rs:#a05c3a;--sg:#7a8c6e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Jost',sans-serif;font-weight:300;background:var(--c);color:var(--esp);min-height:100vh;overflow-x:hidden}
+#splash{position:fixed;inset:0;z-index:999;background:var(--ch);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s,transform .8s}
+#splash.out{opacity:0;pointer-events:none;transform:translateY(-20px)}
+.sbg{position:absolute;inset:0;overflow:hidden}
+.sbg svg{width:100%;height:100%;opacity:.06}
+.sc{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:20px}
+.sx{width:50px;height:50px;position:relative;margin-bottom:24px}
+.sx::before,.sx::after{content:'';position:absolute;background:var(--gd);border-radius:2px}
+.sx::before{width:5px;height:50px;left:50%;transform:translateX(-50%)}
+.sx::after{width:50px;height:5px;top:50%;transform:translateY(-50%)}
+.st{font-family:'Cormorant Garamond',serif;font-size:clamp(3rem,9vw,6rem);font-weight:300;color:#faf8f4;letter-spacing:.08em;line-height:1}
+.ss{font-size:.7rem;letter-spacing:.5em;text-transform:uppercase;color:var(--gd);margin-top:8px;font-weight:200}
+.sdiv{width:100px;height:1px;background:linear-gradient(90deg,transparent,var(--gd),transparent);margin:28px 0}
+.sby{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.15rem;color:var(--sd)}
+.sn{font-family:'Cormorant Garamond',serif;font-size:1.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gl);font-weight:600}
+.sbtn{margin-top:46px;padding:13px 46px;background:transparent;border:1px solid var(--gd);color:var(--gl);font-weight:300;font-size:.74rem;letter-spacing:.38em;text-transform:uppercase;cursor:pointer;transition:background .3s,color .3s,transform .2s;border-radius:3px}
+.sbtn:hover{background:var(--gd);color:var(--ch);transform:translateY(-2px)}
+#app{display:none;min-height:100vh;flex-direction:column}
+#app.on{display:flex}
+header{background:var(--ch);padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 3px 20px rgba(0,0,0,.25)}
+.hl{display:flex;align-items:center;gap:13px}
+.hx{width:19px;height:19px;position:relative}
+.hx::before,.hx::after{content:'';position:absolute;background:var(--gd);border-radius:1px}
+.hx::before{width:3px;height:19px;left:50%;transform:translateX(-50%)}
+.hx::after{width:19px;height:3px;top:50%;transform:translateY(-50%)}
+.hn{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:#faf8f4;letter-spacing:.1em}
+.ht{font-size:.6rem;letter-spacing:.4em;text-transform:uppercase;color:var(--gd);font-weight:200}
+.hr{display:flex;align-items:center;gap:16px}
+.hp{font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--tp);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hnb{padding:6px 20px;background:transparent;border:1px solid rgba(200,169,110,.4);color:var(--gd);border-radius:3px;font-size:.64rem;font-weight:300;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;transition:background .25s}
+.hnb:hover{background:rgba(200,169,110,.12)}
+#up{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;flex-direction:column;gap:32px}
+.ui{text-align:center;max-width:520px}
+.ui h2{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:2.2rem;color:var(--esp);margin-bottom:10px}
+.ui p{color:var(--um);font-size:.86rem;line-height:1.65}
+.uz{width:100%;max-width:540px;border:1.5px dashed var(--tp);border-radius:16px;padding:50px 36px;text-align:center;cursor:pointer;transition:border-color .3s,background .3s,transform .2s;background:var(--ww)}
+.uz:hover,.uz.dov{border-color:var(--gd);background:var(--iv);transform:translateY(-2px);box-shadow:0 8px 40px rgba(74,59,50,.12)}
+.uz h3{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:1.4rem;color:var(--esp);margin-bottom:8px}
+.uz p{font-size:.78rem;color:var(--um)}
+#fi{display:none}
+.ub{margin-top:24px;display:inline-block;padding:11px 34px;background:var(--esp);color:var(--c);border:none;border-radius:3px;font-size:.72rem;font-weight:300;letter-spacing:.28em;text-transform:uppercase;cursor:pointer;transition:background .3s}
+.ub:hover{background:var(--ch)}
+
+/* VIEWER LAYOUT */
+#vs{display:none;flex:1;padding:20px 22px;gap:20px;min-height:0}
+#vs.on{display:grid;grid-template-columns:1fr 380px;align-items:start}
+
+/* CANVAS */
+.cp{background:var(--ch);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,.25)}
+.ct{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(46,37,32,.97);border-bottom:1px solid rgba(255,255,255,.06)}
+.ti{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:var(--tp)}
+.tb2{display:flex;gap:6px}
+.bm{padding:3px 9px;border-radius:20px;font-size:.6rem;font-weight:400;letter-spacing:.12em;text-transform:uppercase}
+.bmod{background:rgba(200,169,110,.15);color:var(--gd);border:1px solid rgba(200,169,110,.3)}
+.bwl{background:rgba(122,140,110,.15);color:var(--sg);border:1px solid rgba(122,140,110,.3)}
+.cw{display:flex;align-items:center;justify-content:center;padding:14px;background:#181310;min-height:400px;position:relative}
+#dc{max-width:100%;max-height:440px;cursor:crosshair;border-radius:2px;display:block}
+.cov{position:absolute;font-size:.6rem;font-family:monospace;color:rgba(200,169,110,.55);letter-spacing:.06em;padding:5px;line-height:1.6}
+.tl{top:16px;left:18px}.tr{top:16px;right:18px;text-align:right}
+.bl{bottom:16px;left:18px}.br{bottom:16px;right:18px;text-align:right}
+.sp{padding:13px 14px;background:rgba(46,37,32,.97);border-top:1px solid rgba(255,255,255,.06);display:flex;gap:18px}
+.sg2{flex:1}
+.sl2{display:flex;justify-content:space-between;margin-bottom:7px}
+.sl2 span:first-child{font-size:.63rem;letter-spacing:.18em;text-transform:uppercase;color:var(--tp)}
+.sv{font-size:.73rem;color:var(--gl);min-width:46px;text-align:right;font-family:monospace}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:rgba(255,255,255,.12);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--gd);cursor:pointer;box-shadow:0 0 6px rgba(200,169,110,.4)}
+
+/* RIGHT PANEL */
+.rp{display:flex;flex-direction:column;gap:16px;max-height:calc(100vh - 96px);overflow-y:auto;padding-bottom:20px}
+.rp::-webkit-scrollbar{width:3px}
+.rp::-webkit-scrollbar-thumb{background:var(--sd);border-radius:3px}
+
+/* META CARDS */
+.mc{background:var(--ww);border-radius:10px;box-shadow:0 4px 20px rgba(74,59,50,.1);overflow:hidden}
+.mh{padding:11px 16px;background:var(--esp);display:flex;align-items:center;gap:9px}
+.mh span{font-size:.63rem;letter-spacing:.26em;text-transform:uppercase;color:var(--gl)}
+.mb{padding:0}
+
+/* META TABLE */
+.mt{width:100%;border-collapse:collapse}
+.mt tr{border-bottom:1px solid var(--iv);transition:background .15s}
+.mt tr:last-child{border-bottom:none}
+.mt tr:hover{background:var(--c)}
+.mt td{padding:7px 16px;vertical-align:top;font-size:.76rem}
+.mt td:first-child{font-size:.63rem;color:var(--tp);letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;width:42%;padding-right:8px}
+.mt td:last-child{color:var(--esp);word-break:break-word;font-weight:400}
+.mt td.hl{color:var(--rs);font-weight:500}
+
+/* ALL TAGS */
+.tsearch{padding:10px 14px 0}
+.tsearch input{width:100%;padding:8px 12px;border:1px solid var(--sd);border-radius:4px;background:var(--c);font-family:'Jost',sans-serif;font-size:.78rem;font-weight:300;color:var(--esp);outline:none;transition:border-color .2s}
+.tsearch input:focus{border-color:var(--gd)}
+.tsearch input::placeholder{color:var(--tp)}
+.twrap{max-height:280px;overflow-y:auto}
+.twrap::-webkit-scrollbar{width:3px}
+.twrap::-webkit-scrollbar-thumb{background:var(--sd)}
+table.tg{width:100%;border-collapse:collapse}
+table.tg thead th{padding:7px 14px;text-align:left;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--tp);font-weight:400;position:sticky;top:0;background:var(--ww);border-bottom:1px solid var(--iv)}
+table.tg tbody tr{border-bottom:1px solid var(--iv);transition:background .15s}
+table.tg tbody tr:hover{background:var(--c)}
+table.tg tbody td{padding:6px 14px;vertical-align:top}
+table.tg tbody td:first-child{font-family:monospace;font-size:.63rem;color:var(--gd);white-space:nowrap}
+table.tg tbody td:nth-child(2){color:var(--um);font-size:.68rem;width:38%}
+table.tg tbody td:last-child{font-size:.7rem;color:var(--esp);word-break:break-all}
+.rb{margin:8px 14px 12px;padding:7px 14px;background:transparent;border:1px solid var(--sd);color:var(--um);border-radius:3px;font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;display:inline-block}
+.rb:hover{background:var(--iv)}
+
+#lod{display:none;position:fixed;inset:0;background:rgba(46,37,32,.75);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+#lod.on{display:flex}
+.lr{width:48px;height:48px;border:2px solid rgba(200,169,110,.2);border-top-color:var(--gd);border-radius:50%;animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.lt{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gl)}
+#tst{display:none;position:fixed;bottom:24px;right:24px;background:var(--esp);color:var(--c);padding:12px 18px;border-radius:8px;font-size:.78rem;border-left:3px solid var(--rs);box-shadow:0 8px 30px rgba(0,0,0,.3);z-index:600;max-width:300px}
+#tst.on{display:block}
+@media(max-width:900px){#vs.on{grid-template-columns:1fr}.rp{max-height:unset}}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="sbg">
+    <svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="450" cy="300" r="270" stroke="#c8a96e" stroke-width="1" fill="none"/>
+      <circle cx="450" cy="300" r="210" stroke="#c8a96e" stroke-width=".6" fill="none"/>
+      <circle cx="450" cy="300" r="140" stroke="#c8a96e" stroke-width=".4" fill="none"/>
+      <line x1="180" y1="300" x2="720" y2="300" stroke="#c8a96e" stroke-width=".5"/>
+      <line x1="450" y1="30" x2="450" y2="570" stroke="#c8a96e" stroke-width=".5"/>
+      <line x1="200" y1="60" x2="700" y2="540" stroke="#c8a96e" stroke-width=".3"/>
+      <line x1="700" y1="60" x2="200" y2="540" stroke="#c8a96e" stroke-width=".3"/>
+    </svg>
+  </div>
+  <div class="sc">
+    <div class="sx"></div>
+    <div class="st">OrthoView</div>
+    <div class="ss">Diagnostic Imaging Platform</div>
+    <div class="sdiv"></div>
+    <div class="sby">by</div>
+    <div class="sn">Marzouk Assia</div>
+    <button class="sbtn" onclick="enterApp()">Accéder &nbsp;→</button>
+  </div>
+</div>
+
+<div id="lod"><div class="lr"></div><div class="lt">Lecture DICOM…</div></div>
+<div id="tst"></div>
+
+<div id="app">
+  <header>
+    <div class="hl">
+      <div class="hx"></div>
+      <div><div class="hn">OrthoView</div><div class="ht">DICOM Viewer</div></div>
+    </div>
+    <div class="hr">
+      <span class="hp" id="fs">Aucun fichier</span>
+      <button class="hnb" onclick="resetV()">Nouveau fichier</button>
+    </div>
+  </header>
+
+  <section id="up">
+    <div class="ui">
+      <h2>Visualisation DICOM</h2>
+      <p>Chargez votre fichier .dcm pour afficher l'image médicale, contrôler le fenêtrage WC/WW et consulter toutes les métadonnées.</p>
+    </div>
+    <div class="uz" id="dz" onclick="document.getElementById('fi').click()" ondragover="dov(event)" ondragleave="dol()" ondrop="ddr(event)">
+      <svg width="54" height="54" viewBox="0 0 64 64" fill="none" style="margin:0 auto 16px;display:block;opacity:.5">
+        <rect x="8" y="4" width="36" height="48" rx="4" stroke="#8c7b6e" stroke-width="2"/>
+        <path d="M32 4v14h14" stroke="#8c7b6e" stroke-width="2"/>
+        <circle cx="48" cy="46" r="12" fill="#f5f0e8" stroke="#c8a96e" stroke-width="2"/>
+        <path d="M48 40v12M42 46h12" stroke="#c8a96e" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h3>Déposer un fichier DICOM</h3>
+      <p>Glissez-déposez votre .dcm ici ou cliquez pour parcourir</p>
+      <input type="file" id="fi" accept=".dcm,.dicom,*" onchange="loadF(this.files[0])">
+      <button class="ub" onclick="event.stopPropagation();document.getElementById('fi').click()">Parcourir</button>
+    </div>
+  </section>
+
+  <section id="vs">
+    <!-- LEFT: Image -->
+    <div class="cp">
+      <div class="ct">
+        <span class="ti" id="tdim">—</span>
+        <div class="tb2">
+          <span class="bm bmod" id="bmod">—</span>
+          <span class="bm bwl" id="bwl">WC — | WW —</span>
+        </div>
+      </div>
+      <div class="cw">
+        <canvas id="dc"></canvas>
+        <div class="cov tl" id="ovp"></div>
+        <div class="cov tr" id="ovs"></div>
+        <div class="cov bl" id="ovx"></div>
+        <div class="cov br" id="ovd"></div>
+      </div>
+      <div class="sp">
+        <div class="sg2">
+          <div class="sl2"><span>Centre (WC)</span><span class="sv" id="wcv">—</span></div>
+          <input type="range" id="swc" min="-2000" max="3000" step="1" oninput="upd()">
+        </div>
+        <div class="sg2">
+          <div class="sl2"><span>Largeur (WW)</span><span class="sv" id="wwv">—</span></div>
+          <input type="range" id="sww" min="1" max="4000" step="1" oninput="upd()">
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Metadata -->
+    <div class="rp">
+
+      <!-- Patient -->
+      <div class="mc">
+        <div class="mh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c8a96e" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span>Informations Patient</span>
+        </div>
+        <div class="mb"><table class="mt" id="tp"></table></div>
+      </div>
+
+      <!-- Acquisition -->
+      <div class="mc">
+        <div class="mh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c8a96e" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+          <span>Acquisition</span>
+        </div>
+        <div class="mb"><table class="mt" id="ta"></table></div>
+      </div>
+
+      <!-- Image props -->
+      <div class="mc">
+        <div class="mh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c8a96e" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <span>Propriétés Image</span>
+        </div>
+        <div class="mb"><table class="mt" id="tim"></table></div>
+      </div>
+
+      <!-- All tags -->
+      <div class="mc">
+        <div class="mh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c8a96e" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          <span>Tous les Tags DICOM</span>
+        </div>
+        <div class="tsearch">
+          <input type="text" id="tsq" placeholder="Filtrer par tag, nom ou valeur…" oninput="ftags()">
+        </div>
+        <div class="twrap">
+          <table class="tg">
+            <thead><tr><th>Tag</th><th>Nom</th><th>Valeur</th></tr></thead>
+            <tbody id="tgb"></tbody>
+          </table>
+        </div>
+        <button class="rb" onclick="document.getElementById('tsq').value='';ftags()">Réinitialiser filtre</button>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<script>
+const TN={'00080008':'Image Type','00080016':'SOP Class UID','00080018':'SOP Instance UID','00080020':'Study Date','00080021':'Series Date','00080022':'Acquisition Date','00080023':'Content Date','00080030':'Study Time','00080031':'Series Time','00080060':'Modality','00080070':'Manufacturer','00080080':'Institution Name','00080090':'Referring Physician','00081010':'Station Name','00081030':'Study Description','0008103E':'Series Description','00081050':'Performing Physician','00100010':'Patient Name','00100020':'Patient ID','00100030':'Patient Birth Date','00100040':'Patient Sex','00101000':'Other Patient IDs','00101010':'Patient Age','00101020':'Patient Size','00101030':'Patient Weight','00102000':'Medical Alerts','00102110':'Allergies','00180015':'Body Part Examined','00180050':'Slice Thickness','00180060':'KVP','00180088':'Spacing Between Slices','00181030':'Protocol Name','00185100':'Patient Position','00200010':'Study ID','00200011':'Series Number','00200013':'Instance Number','00200020':'Patient Orientation','00200032':'Image Position','00200037':'Image Orientation','00200052':'Frame of Reference UID','00280002':'Samples Per Pixel','00280004':'Photometric Interpretation','00280010':'Rows','00280011':'Columns','00280030':'Pixel Spacing','00280100':'Bits Allocated','00280101':'Bits Stored','00280102':'High Bit','00280103':'Pixel Representation','00281050':'Window Center','00281051':'Window Width','00281052':'Rescale Intercept','00281053':'Rescale Slope','7FE00010':'Pixel Data'};
+const VL=new Set(['OB','OW','SQ','UC','UN','UR','UT','OD','OF','OL']);
+function tn(g,e){const k=(g.toString(16).padStart(4,'0')+e.toString(16).padStart(4,'0')).toUpperCase();return TN[k]||TN[k.toLowerCase()]||`(${g.toString(16).padStart(4,'0')},${e.toString(16).padStart(4,'0')})`;}
+
+function parseDicom(buf){
+  const dv=new DataView(buf),u8=new Uint8Array(buf);
+  const tags=[];
+  const mg=String.fromCharCode(u8[128],u8[129],u8[130],u8[131]);
+  let o=mg==='DICM'?132:0;
+  while(o<buf.byteLength-8){
+    try{
+      const g=dv.getUint16(o,true),e=dv.getUint16(o+2,true);o+=4;
+      if(g===0xFFFE&&(e===0xE0DD||e===0xE00D)){o+=4;continue;}
+      let vr='UN',len=0;
+      const c=String.fromCharCode(u8[o],u8[o+1]);
+      const ex=/^[A-Z]{2}$/.test(c);
+      if(ex){vr=c;o+=2;if(VL.has(vr)){o+=2;len=dv.getUint32(o,true);o+=4;}else{len=dv.getUint16(o,true);o+=2;}}
+      else{vr='UN';len=dv.getUint32(o,true);o+=4;}
+      if(len===0xFFFFFFFF)len=0;
+      const tag=`(${g.toString(16).padStart(4,'0')},${e.toString(16).padStart(4,'0')})`;
+      const name=tn(g,e);
+      if(g===0x7FE0&&e===0x0010){tags.push({tag,g,e,vr,len,value:buf.slice(o,o+len),name});o+=len;continue;}
+      let value=null;
+      if(len>0&&len<=65536&&o+len<=buf.byteLength){
+        switch(vr){
+          case'US':value=len>=2?dv.getUint16(o,true):0;break;
+          case'SS':value=len>=2?dv.getInt16(o,true):0;break;
+          case'UL':value=len>=4?dv.getUint32(o,true):0;break;
+          case'SL':value=len>=4?dv.getInt32(o,true):0;break;
+          case'FL':value=len>=4?dv.getFloat32(o,true):0;break;
+          case'FD':value=len>=8?dv.getFloat64(o,true):0;break;
+          default:value=new TextDecoder('latin1').decode(new Uint8Array(buf,o,len)).replace(/\0/g,'').trim();
+        }
+      }
+      tags.push({tag,g,e,vr,len,value,name});o+=len;
+    }catch{break;}
+  }
+  const ds={_tags:tags};
+  for(const t of tags){const k=(t.g.toString(16).padStart(4,'0')+t.e.toString(16).padStart(4,'0')).toLowerCase();ds[k]=t.value;ds[t.name]=t.value;}
+  return ds;
+}
+
+function exPx(ds,rows,cols,bits,signed,pd){
+  const px=new Float32Array(rows*cols);
+  const v=bits===16?(signed?new Int16Array(pd):new Uint16Array(pd)):new Uint8Array(pd);
+  const s=parseFloat(ds['Rescale Slope']??1)||1,it=parseFloat(ds['Rescale Intercept']??0)||0;
+  for(let i=0;i<rows*cols&&i<v.length;i++)px[i]=v[i]*s+it;
+  return px;
+}
+
+function rndr(cv,px,rows,cols,wc,ww){
+  cv.width=cols;cv.height=rows;
+  const ctx=cv.getContext('2d'),id=ctx.createImageData(cols,rows);
+  const mn=wc-ww/2,mx=wc+ww/2;
+  for(let i=0;i<rows*cols;i++){let v=((px[i]-mn)/(mx-mn))*255;v=Math.max(0,Math.min(255,v));id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=v;id.data[i*4+3]=255;}
+  ctx.putImageData(id,0,0);
+}
+
+let gDS=null,gPX=null,gR=512,gC=512;
+
+function gv(ds,...ks){for(const k of ks){if(ds[k]!==undefined&&ds[k]!==null&&String(ds[k]).trim()!=='')return String(ds[k]).trim();}return '—';}
+function fd(d){if(!d||d==='—')return'—';const s=String(d).replace(/\D/g,'');return s.length===8?`${s.slice(6,8)}/${s.slice(4,6)}/${s.slice(0,4)}`:d;}
+
+function fillTable(id,rows){
+  const t=document.getElementById(id);t.innerHTML='';
+  for(const [k,v,hl] of rows){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${k}</td><td class="${hl?'hl':''}">${v||'—'}</td>`;
+    t.appendChild(tr);
+  }
+}
+
+function fillMeta(ds){
+  fillTable('tp',[
+    ['Nom',gv(ds,'Patient Name')],
+    ['ID Patient',gv(ds,'Patient ID')],
+    ['Date naissance',fd(gv(ds,'Patient Birth Date'))],
+    ['Sexe',gv(ds,'Patient Sex')],
+    ['Âge',gv(ds,'Patient Age')],
+    ['Taille',gv(ds,'Patient Size')!=='—'?gv(ds,'Patient Size')+' m':'—'],
+    ['Poids',gv(ds,'Patient Weight')!=='—'?gv(ds,'Patient Weight')+' kg':'—'],
+    ['Allergies',gv(ds,'Allergies')],
+  ]);
+  fillTable('ta',[
+    ['Modalité',gv(ds,'Modality'),true],
+    ['Date étude',fd(gv(ds,'Study Date'))],
+    ['Heure étude',gv(ds,'Study Time')],
+    ['Date série',fd(gv(ds,'Series Date'))],
+    ['Date acquisition',fd(gv(ds,'Acquisition Date'))],
+    ['Description étude',gv(ds,'Study Description')],
+    ['Description série',gv(ds,'Series Description')],
+    ['Institution',gv(ds,'Institution Name')],
+    ['Fabricant',gv(ds,'Manufacturer')],
+    ['Station',gv(ds,'Station Name')],
+    ['Médecin réf.',gv(ds,'Referring Physician')],
+    ['Partie corps',gv(ds,'Body Part Examined')],
+    ['Protocole',gv(ds,'Protocol Name')],
+    ['Position patient',gv(ds,'Patient Position')],
+    ['ID étude',gv(ds,'Study ID')],
+    ['N° série',gv(ds,'Series Number')],
+    ['N° instance',gv(ds,'Instance Number')],
+  ]);
+  fillTable('tim',[
+    ['Dimensions',`${gv(ds,'Columns')} × ${gv(ds,'Rows')} px`],
+    ['Bits alloués',gv(ds,'Bits Allocated')],
+    ['Bits stockés',gv(ds,'Bits Stored')],
+    ['High Bit',gv(ds,'High Bit')],
+    ['Échantillons/pixel',gv(ds,'Samples Per Pixel')],
+    ['Représentation pixel',gv(ds,'Pixel Representation')],
+    ['Photom. Interp.',gv(ds,'Photometric Interpretation')],
+    ['Pixel Spacing',gv(ds,'Pixel Spacing')],
+    ['Épaisseur coupe',gv(ds,'Slice Thickness')],
+    ['Espacement coupes',gv(ds,'Spacing Between Slices')],
+    ['Rescale Slope',gv(ds,'Rescale Slope')],
+    ['Rescale Intercept',gv(ds,'Rescale Intercept')],
+    ['Window Center',gv(ds,'Window Center')],
+    ['Window Width',gv(ds,'Window Width')],
+    ['Image Position',gv(ds,'Image Position')],
+    ['Image Orientation',gv(ds,'Image Orientation')],
+    ['KVP',gv(ds,'KVP')],
+  ]);
+}
+
+let allT=[];
+function fillTags(ds){
+  allT=ds._tags
+    .filter(t=>!t.name.includes('Pixel Data')&&t.name!=='7FE00010')
+    .map(t=>({tag:t.tag,name:t.name,value:t.value!==null&&t.value!==undefined?String(t.value).substring(0,200):'—'}));
+  rtags(allT);
+}
+function rtags(data){
+  const tb=document.getElementById('tgb');tb.innerHTML='';
+  for(const r of data){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.tag}</td><td>${r.name}</td><td>${r.value}</td>`;
+    tb.appendChild(tr);
+  }
+}
+function ftags(){
+  const q=document.getElementById('tsq').value.toLowerCase();
+  if(!q){rtags(allT);return;}
+  rtags(allT.filter(r=>r.name.toLowerCase().includes(q)||r.value.toLowerCase().includes(q)||r.tag.toLowerCase().includes(q)));
+}
+
+function upd(){
+  const wc=parseInt(document.getElementById('swc').value);
+  const ww=parseInt(document.getElementById('sww').value);
+  document.getElementById('wcv').textContent=wc;
+  document.getElementById('wwv').textContent=ww;
+  document.getElementById('bwl').textContent=`WC ${wc} | WW ${ww}`;
+  if(gPX)rndr(document.getElementById('dc'),gPX,gR,gC,wc,ww);
+}
+
+function loadF(file){
+  if(!file)return;
+  document.getElementById('lod').classList.add('on');
+  const fr=new FileReader();
+  fr.onload=function(e){
+    try{
+      const ds=parseDicom(e.target.result);gDS=ds;
+      const rows=parseInt(ds['Rows']||ds['00280010'])||512;
+      const cols=parseInt(ds['Columns']||ds['00280011'])||512;
+      const bits=parseInt(ds['Bits Allocated']||ds['00280100'])||16;
+      const prp=parseInt(ds['Pixel Representation']||ds['00280103'])||0;
+      const pd=ds['Pixel Data']||ds['7fe00010'];
+      if(!pd)throw new Error('Aucune donnée pixel trouvée.');
+      gR=rows;gC=cols;gPX=exPx(ds,rows,cols,bits,prp===1,pd);
+      let wc=parseFloat(ds['Window Center']||ds['00281050'])||40;
+      let ww=parseFloat(ds['Window Width']||ds['00281051'])||400;
+      if(String(wc).includes('\\'))wc=parseFloat(String(wc).split('\\')[0]);
+      if(String(ww).includes('\\'))ww=parseFloat(String(ww).split('\\')[0]);
+      document.getElementById('swc').value=wc;document.getElementById('sww').value=ww;
+      document.getElementById('wcv').textContent=Math.round(wc);
+      document.getElementById('wwv').textContent=Math.round(ww);
+      document.getElementById('bwl').textContent=`WC ${Math.round(wc)} | WW ${Math.round(ww)}`;
+      rndr(document.getElementById('dc'),gPX,rows,cols,wc,ww);
+      const mod=gv(ds,'Modality');
+      document.getElementById('ovp').innerHTML=gv(ds,'Patient Name')+'<br>'+gv(ds,'Patient ID');
+      document.getElementById('ovs').innerHTML=mod+'<br>'+fd(gv(ds,'Study Date'));
+      document.getElementById('ovx').textContent=`${cols}×${rows}`;
+      document.getElementById('ovd').textContent=fd(gv(ds,'Content Date','Study Date'));
+      document.getElementById('tdim').textContent=`${cols}×${rows} px — ${bits}bit`;
+      document.getElementById('bmod').textContent=mod||'DICOM';
+      document.getElementById('fs').textContent=file.name;
+      fillMeta(ds);fillTags(ds);
+      document.getElementById('up').style.display='none';
+      document.getElementById('vs').classList.add('on');
+      document.getElementById('lod').classList.remove('on');
+    }catch(err){document.getElementById('lod').classList.remove('on');showT('Erreur : '+err.message);}
+  };
+  fr.onerror=()=>{document.getElementById('lod').classList.remove('on');showT('Impossible de lire ce fichier.');};
+  fr.readAsArrayBuffer(file);
+}
+
+function resetV(){gDS=null;gPX=null;document.getElementById('vs').classList.remove('on');document.getElementById('up').style.display='';document.getElementById('fs').textContent='Aucun fichier';document.getElementById('fi').value='';}
+function dov(e){e.preventDefault();document.getElementById('dz').classList.add('dov');}
+function dol(){document.getElementById('dz').classList.remove('dov');}
+function ddr(e){e.preventDefault();dol();if(e.dataTransfer.files[0])loadF(e.dataTransfer.files[0]);}
+function showT(m){const t=document.getElementById('tst');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),5000);}
+function enterApp(){
+  document.getElementById('splash').classList.add('out');
+  setTimeout(()=>{document.getElementById('splash').style.display='none';document.getElementById('app').classList.add('on');},800);
+}
+</script>
+</body>
+</html>
